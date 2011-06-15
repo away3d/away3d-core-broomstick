@@ -157,6 +157,56 @@ package away3d.core.math
             
 			return result;
         }
+		///////////more static methods by @MichaelIV (ported from UNITY3D API//////////////////
+		/**
+		 * This scale is non scalar .The method scales each component of the vector by the same component of another vector.
+		 * So given v1(2,3,6) and v2(3,5,7) whereas v2 is multiplied by v2 the v1 returned as new v1(6,15,42)
+		 * 
+		 */
+		public static function scaleVectors(scaledVector:Vector3D,scalingVector:Vector3D):Vector3D{
+			var scaledClone:Vector3D=scaledVector.clone();
+			scaledClone.x*=scalingVector.x;
+			scaledClone.y*=scalingVector.y;
+			scaledClone.z*=scalingVector.z;
+			return scaledClone;
+			
+		}
+		/**
+		 * Clamps a magnitude (length) of the given vector by max value
+		 * 
+		 * 
+		 */
+		public static function clampMagnitude(value:Vector3D,max:Number):Vector3D{
+			return new Vector3D(clamp(value.x,value.x,max),	clamp(value.y,value.y,max),clamp(value.z,value.z,max));
+			
+			
+			
+			
+		}
+	
+		/**
+		 * 
+		 * Base clamp method
+		 * Takes numeric value as an input and clamps it between min and max range
+		 */ 
+		public static function clamp(value:Number, min:Number, max:Number):Number{
+			return Math.max(min, Math.min(max, value));
+			
+		}
+		/**
+		 * 
+		 * Linear Interpolation between two vectors.T is the interpolation factor
+		 * which ranges between 0 and 1 
+		 */ 
+		public static function LERP(v1:Vector3D,v2:Vector3D,t:Number):Vector3D{
+			////(1-r)*a + r*b = (1-r)*(ax,ay,az) + r*(bx,by,bz)
+			var scaledV1:Vector3D=v1.clone();
+			scaledV1.scaleBy(1-t);
+			var scaledV2:Vector3D=v2.clone();
+			scaledV2.scaleBy(t);
+			
+			return  scaledV1.add(scaledV2);
+		}
         
 	}
 }
