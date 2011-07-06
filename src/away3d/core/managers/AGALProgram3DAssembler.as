@@ -22,12 +22,17 @@ package away3d.core.managers
 	{
 		private static var _instance : AGALProgram3DAssembler;
 
+		protected var _vertexShaderCache:AGALProgram3DCache;
+		protected var _fragmentShaderCache:AGALProgram3DCache;
+
 		/**
 		 * Creates a new AGALProgram3DAssembler object. Should not be used directly.
 		 * @private
 		 */
 		public function AGALProgram3DAssembler(se : SE)
 		{
+			_vertexShaderCache = new AGALProgram3DCache(10,AGALProgram3DCache.ERROR_ON_OVERFLOW);
+			_fragmentShaderCache = new AGALProgram3DCache(10,AGALProgram3DCache.ERROR_ON_OVERFLOW);
 		}
 
 		/**
@@ -53,8 +58,12 @@ package away3d.core.managers
 //			trace ("---");
 //			trace (materialFragmentCode);
 //			trace ("---");
-			var vertexCode : ByteArray = new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, animationVertexCode+projectionVertexCode+materialVertexCode);
-			var fragmentCode : ByteArray = new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, materialFragmentCode);
+
+			var vertexAGAL:String = animationVertexCode+projectionVertexCode+materialVertexCode;
+			var fragmentAGAL:String = materialFragmentCode;
+			
+			var vertexCode : ByteArray = _vertexShaderCache.getCompiledShaderForAGAL(vertexAGAL) || _vertexShaderCache.store(vertexAGAL,new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.VERTEX, animationVertexCode+projectionVertexCode+materialVertexCode),true);
+			var fragmentCode : ByteArray = _fragmentShaderCache.getCompiledShaderForAGAL(fragmentAGAL) || _fragmentShaderCache.store(fragmentAGAL, new AGALMiniAssembler(Debug.active).assemble(Context3DProgramType.FRAGMENT, materialFragmentCode),true);
 			program.upload(vertexCode, fragmentCode);
 		}
 
