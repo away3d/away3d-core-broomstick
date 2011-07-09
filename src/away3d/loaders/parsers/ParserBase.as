@@ -8,7 +8,7 @@ package away3d.loaders.parsers
 	import away3d.library.assets.IAsset;
 	import away3d.loaders.misc.ResourceDependency;
 	import away3d.loaders.parsers.data.DefaultBitmapData;
-	
+
 	import flash.display.BitmapData;
 	import flash.events.EventDispatcher;
 	import flash.events.TimerEvent;
@@ -16,7 +16,7 @@ package away3d.loaders.parsers
 	import flash.utils.ByteArray;
 	import flash.utils.Timer;
 	import flash.utils.getTimer;
-	
+
 	use namespace arcane;
 	
 	/**
@@ -200,7 +200,6 @@ package away3d.loaders.parsers
 		
 		arcane function resumeParsingAfterDependencies() : void
 		{
-			trace ('RESUMING PARSE');
 			_dependencies.length = 0;
 			_parsingPaused = false;
 			_timer.start();
@@ -287,9 +286,9 @@ package away3d.loaders.parsers
 		}
 		
 		
-		protected function addDependency(id : String, req : URLRequest, retrieveAsRawData : Boolean = false) : void
+		protected function addDependency(id : String, req : URLRequest, retrieveAsRawData : Boolean = false, data : * = null) : void
 		{
-			_dependencies.push(new ResourceDependency(id, req, null, this, retrieveAsRawData));
+			_dependencies.push(new ResourceDependency(id, req, data, this, retrieveAsRawData));
 		}
 		
 		
@@ -297,7 +296,6 @@ package away3d.loaders.parsers
 		{
 			_timer.stop();
 			_parsingPaused = true;
-			trace ('PAUSING PARSE!');
 			dispatchEvent(new ParserEvent(ParserEvent.READY_FOR_DEPENDENCIES));
 		}
 		

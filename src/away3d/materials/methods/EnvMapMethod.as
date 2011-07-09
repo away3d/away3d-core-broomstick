@@ -5,7 +5,7 @@ package away3d.materials.methods
 {
 	import away3d.arcane;
 	import away3d.core.managers.CubeTexture3DProxy;
-	import away3d.materials.utils.AGAL;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.materials.utils.CubeMap;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
@@ -49,16 +49,16 @@ package away3d.materials.methods
 			_data[0] = value;
 		}
 
-		arcane override function activate(context : Context3D, contextIndex : uint) : void
+		arcane override function activate(stage3DProxy : Stage3DProxy) : void
 		{
-			context.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _dataIndex, _data, 1);
-			context.setTextureAt(_cubeMapIndex, _cubeTexture.getTextureForContext(context, contextIndex));
+			stage3DProxy._context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _dataIndex, _data, 1);
+			stage3DProxy.setTextureAt(_cubeMapIndex, _cubeTexture.getTextureForContext(stage3DProxy));
 		}
 
-		arcane override function deactivate(context : Context3D) : void
-		{
-			context.setTextureAt(_cubeMapIndex, null);
-		}
+//		arcane override function deactivate(stage3DProxy : Stage3DProxy) : void
+//		{
+//			stage3DProxy.setTextureAt(_cubeMapIndex, null);
+//		}
 
 		arcane override function getFragmentPostLightingCode(regCache : ShaderRegisterCache, targetReg : ShaderRegisterElement) : String
 		{
@@ -70,15 +70,15 @@ package away3d.materials.methods
 			_dataIndex = dataRegister.index;
 
 			// r = V - 2(V.N)*N
-			code += AGAL.dp3(temp+".w", _viewDirFragmentReg+".xyz", _normalFragmentReg+".xyz");
-			code += AGAL.add(temp+".w", temp+".w", temp+".w");
-			code += AGAL.mul(temp+".xyz", _normalFragmentReg+".xyz", temp+".w");
-			code += AGAL.sub(temp+".xyz", _viewDirFragmentReg+".xyz", temp+".xyz");
-			code += AGAL.neg(temp+".xyz", temp+".xyz");
-			code += AGAL.sample(temp.toString(), temp.toString(), "cube", cubeMapReg.toString(), _smooth? "bilinear" : "nearestNoMip", "clamp");
-			code += AGAL.sub(temp+".xyz", temp+".xyz", targetReg+".xyz");
-			code += AGAL.mul(temp+".xyz", temp+".xyz", dataRegister+".x");
-			code += AGAL.add(targetReg+".xyz", targetReg+".xyz", temp+".xyz");
+			code += "dp3 " + temp + ".w, " + _viewDirFragmentReg + ".xyz, " + _normalFragmentReg + ".xyz		\n" +
+					"add " + temp + ".w, " + temp + ".w, " + temp + ".w											\n" +
+					"mul " + temp + ".xyz, " + _normalFragmentReg + ".xyz, " + temp + ".w						\n" +
+					"sub " + temp + ".xyz, " + _viewDirFragmentReg + ".xyz, " + temp + ".xyz					\n" +
+					"neg " + temp + ".xyz, " + temp + ".xyz														\n" +
+					"tex " + temp.toString() + ", " + temp.toString() + ", " + cubeMapReg + " <cube, " + (_smooth? "linear" : "nearest") + ",clamp>\n" +
+					"sub " + temp + ".xyz, " + temp + ".xyz, " + targetReg + ".xyz								\n" +
+					"mul " + temp + ".xyz, " + temp + ".xyz, " + dataRegister + ".x								\n" +
+					"add " + targetReg + ".xyz, " + targetReg+".xyz, " + temp + ".xyz							\n";
 
 			return code;
 		}

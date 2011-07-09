@@ -8,6 +8,7 @@ package away3d.loaders.parsers
 	import away3d.animators.skeleton.SkeletonJoint;
 	import away3d.animators.skeleton.SkeletonPose;
 	import away3d.arcane;
+	import away3d.containers.ObjectContainer3D;
 	import away3d.core.base.Geometry;
 	import away3d.core.base.SkinnedSubGeometry;
 	import away3d.core.base.SubGeometry;
@@ -17,15 +18,16 @@ package away3d.loaders.parsers
 	import away3d.loaders.misc.ResourceDependency;
 	import away3d.materials.BitmapMaterial;
 	import away3d.materials.MaterialBase;
-	
+
 	import flash.display.BitmapData;
+	import flash.display.Loader;
 	import flash.display.Sprite;
 	import flash.geom.Matrix;
 	import flash.geom.Matrix3D;
 	import flash.net.URLRequest;
 	import flash.utils.ByteArray;
 	import flash.utils.Endian;
-	
+
 	use namespace arcane;
 	
 	/**
@@ -46,6 +48,9 @@ package away3d.loaders.parsers
 		
 		private var _parsed_header : Boolean;
 		private var _body : ByteArray;
+		
+		private var read_float : Function;
+		private var read_uint : Function;
 		
 		public static const UNCOMPRESSED : uint = 0;
 		public static const DEFLATE : uint = 1;
@@ -159,42 +164,26 @@ package away3d.loaders.parsers
 				parseHeader();
 				switch (_compression) {
 					case DEFLATE:
-						// TODO: Decompress deflate into _body;
 						_body = new ByteArray;
 						_byteData.readBytes(_body, 0, _byteData.bytesAvailable);
-						_body.inflate();
-						_body.position = 0;
+						_body.uncompress();
 						break;
 					case LZMA:
 						// TODO: Decompress LZMA into _body
-						/*
-						var decoder : LZMADecoder;
-						var properties : Vector.<int>;
-						var out_size : int;
-						
-						_body = new ByteArray;
-						
-						properties = new Vector.<int>(5, true);
-						for(var i: int = 0; i < 5; ++i) {
-						properties[i] = _byteData.readUnsignedByte()
-						}
-						
-						out_size = _byteData.readUnsignedInt();
-						trace('out size: ', out_size);
-						
-						decoder = new LZMADecoder;
-						decoder.setDecoderProperties(properties);
-						//decoder.setDecoderProperties(Vector.<int>([0x5d, 0, 0, 0, 1]));
-						decoder.code(_byteData, _body, out_size);
-						_body.position = 0;
-						*/
-						_body.position = _body.length;
-						trace('LZMA decoding not yet supported in AWD parser.');
+						dieWithError('LZMA decoding not yet supported in AWD parser.');
 						break;
 					case UNCOMPRESSED:
 						_body = _byteData;
 						break;
 				}
+				
+				// Define which methods to use when reading floating
+				// point and integer numbers respectively. This way, 
+				// the optimization test and ByteArray dot-lookup
+				// won't have to be made every iteration in the loop.
+				read_float = _optimized_for_accuracy? _body.readDouble : _body.readFloat;
+				read_uint = _optimized_for_accuracy? _body.readUnsignedInt : _body.readUnsignedShort;
+			
 				
 				_parsed_header = true;
 			}
@@ -225,20 +214,13 @@ package away3d.loaders.parsers
 			_streaming 					= (flags & 0x1) == 0x1;
 			_optimized_for_accuracy 	= (flags & 0x2) == 0x2;
 			
-			_compression = _byteData.readUnsignedByte();
 			
-			trace('HEADER:');
-			trace('version:', _version[0], _version[1]);
-			trace('streaming?', _streaming);
-			trace('accurate?', _optimized_for_accuracy);
-			trace('compression:', _compression);
+			_compression = _byteData.readUnsignedByte();
 			
 			// Check file integrity
 			body_len = _byteData.readUnsignedInt();
-			trace('body len: ', body_len);
 			if (!_streaming && body_len != _byteData.bytesAvailable) {
-				trace('error: body len does not match file length');
-				// TODO: Throw error since size does not match
+				dieWithError('AWD2 body length does not match header integrity field');
 			}
 		}
 		
@@ -252,38 +234,32 @@ package away3d.loaders.parsers
 			type = _body.readUnsignedByte();
 			len = _body.readUnsignedInt();
 			
-			trace('block:', ns, _cur_block_id, type, len);
 			switch (type) {
 				case 1:
-					trace('Parsing mesh data');
 					assetData = parseMeshData(len);
 					break;
+				case 22:
+					assetData = parseContainer(len);
+					break;
 				case 24:
-					//trace('Parsing mesh instance');
 					assetData = parseMeshInstance(len);
 					break;
 				case 81:
-					trace('Parsing material');
 					assetData = parseMaterial(len);
 					break;
 				case 82:
-					trace('Parsing texture');
 					assetData = parseTexture(len);
 					break;
 				case 101:
-					trace('Parsing skeleton');
 					assetData = parseSkeleton(len);
 					break;
 				case 102:
-					trace('Parsing pose');
 					assetData = parseSkeletonPose(len);
 					break;
 				case 103:
-					trace('Parsing skelanim');
 					assetData = parseSkeletonAnimation(len);
 					break;
 				case 121:
-					trace('Parsing uvanim');
 					assetData = parseUVAnimation(len);
 					break;
 				default:
@@ -363,7 +339,6 @@ package away3d.loaders.parsers
 				var tex_addr : uint;
 				
 				tex_addr = props.get(2, 0);
-				trace('texture addr: ', tex_addr);
 				bmp_asset = _blocks[tex_addr].data;
 				
 				// If bitmap asset has already been loaded
@@ -401,13 +376,18 @@ package away3d.loaders.parsers
 				var url : String;
 				
 				url = _body.readUTFBytes(data_len);
-				trace('tex url:', url);
 				
-				// TODO: Create dependency
 				_texture_users[_cur_block_id.toString()] = [];
 				addDependency(_cur_block_id.toString(), new URLRequest(url));
 			}
 			else {
+				var data : ByteArray;
+				var loader : Loader;
+				
+				data = new ByteArray();
+				_body.readBytes(data, 0, data_len);
+				
+				addDependency(_cur_block_id.toString(), null, false, data);
 			}
 			
 			// Ignore for now
@@ -441,7 +421,6 @@ package away3d.loaders.parsers
 			// Discard properties for now
 			parseProperties(null);
 			
-			trace('name:', name,'joints:', num_joints);
 			joints_parsed = 0;
 			while (joints_parsed < num_joints) {
 				var parent_id : uint;
@@ -458,6 +437,10 @@ package away3d.loaders.parsers
 				
 				ibp = parseMatrix3D();
 				joint.inverseBindPose = ibp.rawData;
+				
+				// Ignore joint props/attributes for now
+				parseProperties(null);
+				parseUserAttributes();
 				
 				skeleton.joints.push(joint);
 				joints_parsed++;
@@ -529,8 +512,6 @@ package away3d.loaders.parsers
 			animation = new SkeletonAnimationSequence(name);
 			
 			num_frames = _body.readUnsignedShort();
-			frame_rate = _body.readUnsignedByte();
-			frame_dur = 1000/frame_rate;
 			
 			// Ignore properties for now (none in spec)
 			parseProperties(null);
@@ -541,6 +522,7 @@ package away3d.loaders.parsers
 				
 				//TODO: Check for null?
 				pose_addr = _body.readUnsignedInt();
+				frame_dur = _body.readUnsignedShort();
 				animation.addFrame(_blocks[pose_addr].data as SkeletonPose, frame_dur);
 				
 				frames_parsed++;
@@ -554,6 +536,34 @@ package away3d.loaders.parsers
 			return animation;
 		}
 		
+		private function parseContainer(blockLength : uint) : ObjectContainer3D
+		{
+			var name : String;
+			var par_id : uint;
+			var mtx : Matrix3D;
+			var ctr : ObjectContainer3D;
+			var parent : ObjectContainer3D;
+			
+			par_id = _body.readUnsignedInt();
+			mtx = parseMatrix3D();
+			name = parseVarStr();
+			
+			ctr = new ObjectContainer3D();
+			ctr.transform = mtx;
+			
+			parent = _blocks[par_id].data as ObjectContainer3D;
+			if (parent) {
+				parent.addChild(ctr);
+			}
+			
+			finalizeAsset(ctr, name);
+			
+			parseProperties(null);
+			parseUserAttributes();
+		
+			return ctr;
+		}
+		
 		private function parseMeshInstance(blockLength : uint) : Mesh
 		{
 			var name : String;
@@ -563,6 +573,7 @@ package away3d.loaders.parsers
 			var materials : Vector.<MaterialBase>;
 			var num_materials : uint;
 			var materials_parsed : uint;
+			var parent : ObjectContainer3D;
 			
 			par_id = _body.readUnsignedInt();
 			mtx = parseMatrix3D();
@@ -585,6 +596,12 @@ package away3d.loaders.parsers
 			
 			mesh = new Mesh(null, geom);
 			mesh.transform = mtx;
+			
+			// Add to parent if one exists
+			parent = _blocks[par_id].data as ObjectContainer3D;
+			if (parent) {
+				parent.addChild(mesh);
+			}
 			
 			if (materials.length >= 1 && mesh.subMeshes.length == 1) {
 				mesh.material = materials[0];
@@ -649,25 +666,11 @@ package away3d.loaders.parsers
 				// Loop through data streams
 				while (_body.position < sm_end) {
 					var idx : uint = 0;
-					var read_float : Function, read_int : Function;
 					var str_type : uint, str_len : uint, str_end : uint;
 					
 					str_type = _body.readUnsignedByte();
 					str_len = _body.readUnsignedInt();
 					str_end = _body.position + str_len;
-					
-					// Define which methods to use when reading floating
-					// point and integer numbers respectively. This way, 
-					// the optimization test and ByteArray dot-lookup
-					// won't have to be made every iteration in the loop.
-					if (_optimized_for_accuracy) {
-						read_float = _body.readDouble;
-						read_int = _body.readUnsignedInt;
-					}
-					else {
-						read_float = _body.readFloat;
-						read_int = _body.readUnsignedShort;
-					}
 					
 					var x:Number, y:Number, z:Number;
 					
@@ -687,7 +690,7 @@ package away3d.loaders.parsers
 					else if (str_type == 2) {
 						var indices : Vector.<uint> = new Vector.<uint>;
 						while (_body.position < str_end) {
-							indices[idx++] = read_int();
+							indices[idx++] = read_uint();
 						}
 						sub_geom.updateIndexData(indices);
 					}
@@ -705,20 +708,19 @@ package away3d.loaders.parsers
 						}
 						sub_geom.updateVertexNormalData(normals);
 					}
-					else if (str_type == 7) {
+					else if (str_type == 6) {
 						w_indices = new Vector.<Number>;
 						while (_body.position < str_end) {
-							w_indices[idx++] = read_int()*3;
+							w_indices[idx++] = read_uint()*3;
 						}
 					}
-					else if (str_type == 8) {
+					else if (str_type == 7) {
 						weights = new Vector.<Number>;
 						while (_body.position < str_end) {
 							weights[idx++] = read_float();
 						}
 					}
 					else {
-						trace('unknown str type:', str_type);
 						_body.position = str_end;
 					}
 				}
@@ -731,6 +733,7 @@ package away3d.loaders.parsers
 					skinned_sub_geom.updateVertexData(sub_geom.vertexData);
 					skinned_sub_geom.updateIndexData(sub_geom.indexData);
 					skinned_sub_geom.updateUVData(sub_geom.UVData);
+					skinned_sub_geom.updateVertexNormalData(sub_geom.vertexNormalData);
 					skinned_sub_geom.updateJointIndexData(w_indices);
 					skinned_sub_geom.updateJointWeightsData(weights);
 					sub_geom = skinned_sub_geom;
@@ -862,7 +865,7 @@ package away3d.loaders.parsers
 			var i : uint;
 			var mtx_raw : Vector.<Number> = new Vector.<Number>;
 			for (i=0; i<len; i++) {
-				mtx_raw[i] = _body.readDouble();
+				mtx_raw[i] = read_float();
 			}
 			
 			return mtx_raw;

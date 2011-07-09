@@ -1,7 +1,7 @@
 package away3d.materials.methods
 {
 	import away3d.arcane;
-	import away3d.materials.utils.AGAL;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
 
@@ -49,9 +49,9 @@ package away3d.materials.methods
 			_fogData[2] = (value & 0xff)/0xff;
 		}
 
-		arcane override function activate(context : Context3D, contextIndex : uint) : void
+		arcane override function activate(stage3DProxy : Stage3DProxy) : void
 		{
-			context.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _fogDataIndex, _fogData, 1);
+			stage3DProxy._context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _fogDataIndex, _fogData, 1);
 		}
 
 		arcane override function getFragmentPostLightingCode(regCache : ShaderRegisterCache, targetReg : ShaderRegisterElement) : String
@@ -61,14 +61,14 @@ package away3d.materials.methods
 			var code : String = "";
 			_fogDataIndex = fogDataRegister.index;
 
-			code += AGAL.dp3(temp+".w", _viewDirVaryingReg+".xyz", _viewDirVaryingReg+".xyz");	// dist²
-			code += AGAL.sqrt(temp+".w", temp+".w");	// dist²
-			code += AGAL.mul(temp+".w", temp+".w", fogDataRegister+".w");						// fogRatio = dist²/maxDist²
-			code += AGAL.neg(temp+".w", temp+".w");						// fogRatio = dist²/maxDist²
-			code += AGAL.exp(temp+".w", temp+".w");						// fogRatio = dist²/maxDist²
-			code += AGAL.sub(temp+".xyz", targetReg+".xyz", fogDataRegister+".xyz");						// (fogColor- col)
-			code += AGAL.mul(temp+".xyz", temp+".xyz", temp+".w");								// (fogColor- col)*fogRatio
-			code += AGAL.add(targetReg+".xyz", fogDataRegister+".xyz", temp+".xyz");					// fogRatio*(fogColor- col) + col
+			code += "dp3 " + temp + ".w, " + _viewDirVaryingReg+".xyz, " + _viewDirVaryingReg + ".xyz		\n" + 	// dist²
+					"sqt " + temp + ".w, " + temp + ".w										\n" + 	// dist²
+					"mul " + temp + ".w, " + temp + ".w, " + fogDataRegister + ".w			\n" + 			// fogRatio = dist²/maxDist²
+					"neg " + temp + ".w, " + temp + ".w										\n" +			// fogRatio = dist²/maxDist²
+					"exp " + temp + ".w, " + temp + ".w										\n" + 			// fogRatio = dist²/maxDist²
+					"sub " + temp + ".xyz, " + targetReg + ".xyz, " + fogDataRegister + ".xyz\n" + 			// (fogColor- col)
+					"mul " + temp + ".xyz, " + temp+".xyz, " + temp + ".w					\n" +			// (fogColor- col)*fogRatio
+					"add " + targetReg + ".xyz, " + fogDataRegister + ".xyz, " + temp + ".xyz\n";			// fogRatio*(fogColor- col) + col
 
 
 			return code;

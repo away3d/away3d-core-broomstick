@@ -3,9 +3,9 @@ package away3d.materials.methods
 	import away3d.arcane;
 	import away3d.cameras.Camera3D;
 	import away3d.core.base.IRenderable;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.entities.TextureProjector;
 	import away3d.lights.LightBase;
-	import away3d.materials.utils.AGAL;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
 
@@ -74,11 +74,11 @@ package away3d.materials.methods
 			_projectionIndex = projReg.index;
 			_uvVarying = regCache.getFreeVarying();
 			_toTexIndex = toTexReg.index;
-			code += AGAL.m44(temp.toString(), "vt0", projReg.toString());
-			code += AGAL.div(temp.toString(), temp.toString(), temp+".w");
-			code += AGAL.mul(temp+".xy", temp+".xy", toTexReg+".xy");
-			code += AGAL.add(temp+".xy", temp+".xy", toTexReg+".xx");
-			code += AGAL.mov(_uvVarying.toString(), temp.toString());
+			code += "m44 " + temp + ", vt0, " + projReg + "						\n" +
+					"div " + temp + ", " + temp + ", " + temp + ".w				\n" +
+					"mul " + temp + ".xy, " + temp + ".xy, " + toTexReg+".xy	\n" +
+					"add " + temp + ".xy, " + temp + ".xy, " + toTexReg+".xx	\n" +
+					"mov " + _uvVarying + ", " + temp + "						\n";
 			return code;
 		}
 
@@ -93,15 +93,16 @@ package away3d.materials.methods
 
 			_mapIndex = mapRegister.index;
 
-			code += AGAL.sample(col.toString(), _uvVarying.toString(), "2d", mapRegister.toString(), "trilinear", "clamp");
+			code += "tex " + col + ", " + _uvVarying + ", " + mapRegister + " <2d,linear,miplinear,clamp>\n";
+
 			if (_mode == MULTIPLY)
-				code += AGAL.mul(targetReg+".xyz", targetReg+".xyz", col+".xyz");
+				code += "mul " + targetReg + ".xyz, " + targetReg + ".xyz, " + col + ".xyz			\n";
 			else if (_mode == ADD)
-				code += AGAL.add(targetReg+".xyz", targetReg+".xyz", col+".xyz");
+				code += "add " + targetReg + ".xyz, " + targetReg + ".xyz, " + col + ".xyz			\n";
 			else if (_mode == MIX) {
-				code += AGAL.sub(col+".xyz", col+".xyz", targetReg+".xyz");
-                code += AGAL.mul(col+".xyz", col+".xyz", col+".w");
-                code += AGAL.add(targetReg+".xyz", targetReg+".xyz", col+".xyz");
+				code += "sub " + col + ".xyz, " + col + ".xyz, " + targetReg + ".xyz				\n" +
+						"mul " + col + ".xyz, " + col + ".xyz, " + col + ".w						\n" +
+						"add " + targetReg + ".xyz, " + targetReg + ".xyz, " + col + ".xyz			\n";
 			}
 			else {
 				throw new Error("Unknown mode \""+_mode+"\"");
@@ -110,25 +111,25 @@ package away3d.materials.methods
 			return code;
 		}
 
-		arcane override function setRenderState(renderable : IRenderable, context : Context3D, contextIndex : uint, camera : Camera3D, lights : Vector.<LightBase>) : void
+		arcane override function setRenderState(renderable : IRenderable, stage3DProxy : Stage3DProxy, camera : Camera3D, lights : Vector.<LightBase>) : void
 		{
 			_projMatrix.copyFrom(_projector.viewProjection);
 			_projMatrix.prepend(renderable.sceneTransform);
-			context.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, _projectionIndex, _projMatrix, true);
+			stage3DProxy._context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, _projectionIndex, _projMatrix, true);
 		}
 
 		/**
 		 * @inheritDoc
 		 */
-		override arcane function activate(context : Context3D, contextIndex : uint) : void
+		override arcane function activate(stage3DProxy : Stage3DProxy) : void
 		{
-			context.setProgramConstantsFromVector(Context3DProgramType.VERTEX, _toTexIndex, _offsetData, 1);
-			context.setTextureAt(_mapIndex, _projector.texture.getTextureForContext(context, contextIndex));
+			stage3DProxy._context3D.setProgramConstantsFromVector(Context3DProgramType.VERTEX, _toTexIndex, _offsetData, 1);
+			stage3DProxy.setTextureAt(_mapIndex, _projector.texture.getTextureForStage3D(stage3DProxy));
 		}
 
-		arcane override function deactivate(context : Context3D) : void
-		{
-			context.setTextureAt(_mapIndex, null);
-		}
+//		arcane override function deactivate(stage3DProxy : Stage3DProxy) : void
+//		{
+//			stage3DProxy.setTextureAt(_mapIndex, null);
+//		}
 	}
 }

@@ -1,7 +1,7 @@
 package away3d.materials.methods
 {
 	import away3d.arcane;
-	import away3d.materials.utils.AGAL;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
 
@@ -61,10 +61,10 @@ package away3d.materials.methods
 		/**
 		 * @inheritDoc
 		 */
-		override arcane function activate(context : Context3D, contextIndex : uint) : void
+		override arcane function activate(stage3DProxy : Stage3DProxy) : void
 		{
-			super.activate(context, contextIndex);
-			context.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _dataIndex, _data, 1);
+			super.activate(stage3DProxy);
+			stage3DProxy._context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _dataIndex, _data, 1);
 		}
 
 		/**
@@ -75,15 +75,11 @@ package away3d.materials.methods
 		 */
 		private function clampSpecular(target : ShaderRegisterElement, regCache : ShaderRegisterCache) : String
 		{
-			var code : String = "";
-
-			code += AGAL.sub(target+".y", target+".w", _dataReg+".y"); // x - cutoff
-			code += AGAL.div(target+".y", target+".y", _dataReg+".x"); // (x - cutoff)/epsilon
-			code += AGAL.sat(target+".y", target+".y");
-			code += AGAL.step(target+".w", target+".w", _dataReg+".y");
-			code += AGAL.mul(target+".w", target+".w", target+".y");
-
-			return code;
+			return 	"sub " + target+".y, " + target+".w, " + _dataReg+".y\n" + // x - cutoff
+					"div " + target+".y, " + target+".y, " + _dataReg+".x\n" + // (x - cutoff)/epsilon
+					"sat " + target+".y, " + target+".y\n" +
+					"sge " + target+".w, " + target+".w, " + _dataReg+".y\n" +
+					"mul " + target+".w, " + target+".w, " + target+".y\n";
 		}
 
 		/**

@@ -1,7 +1,7 @@
 package away3d.materials.methods
 {
 	import away3d.arcane;
-	import away3d.materials.utils.AGAL;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
 
@@ -91,15 +91,15 @@ package away3d.materials.methods
 			_ambientInputRegister = regCache.getFreeFragmentConstant();
 			_ambientInputIndex = _ambientInputRegister.index;
 
-			return AGAL.mov(targetReg.toString(), _ambientInputRegister.toString());
+			return "mov " + targetReg.toString() + ", " + _ambientInputRegister.toString() + "	\n";
 		}
 
 		/**
 		 * @inheritDoc
 		 */
-		override arcane function activate(context : Context3D, contextIndex : uint) : void
+		override arcane function activate(stage3DProxy : Stage3DProxy) : void
 		{
-			context.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _ambientInputIndex, _ambientData, 1);
+			stage3DProxy._context3D.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _ambientInputIndex, _ambientData, 1);
 		}
 
 		/**

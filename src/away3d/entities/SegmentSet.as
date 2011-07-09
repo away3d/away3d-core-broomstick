@@ -6,8 +6,8 @@
 	import away3d.arcane;
 	import away3d.bounds.BoundingSphere;
 	import away3d.bounds.BoundingVolumeBase;
-	import away3d.containers.View3D;
 	import away3d.core.base.IRenderable;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.core.partition.EntityNode;
 	import away3d.core.partition.RenderableNode;
 	import away3d.materials.MaterialBase;
@@ -17,6 +17,7 @@
 	import flash.display3D.Context3D;
 	import flash.display3D.IndexBuffer3D;
 	import flash.display3D.VertexBuffer3D;
+	import flash.geom.Matrix;
 	import flash.geom.Vector3D;
 
 	use namespace arcane;
@@ -174,35 +175,35 @@
 			_indexBufferDirty = true;
 		}
 
-		public function getVertexBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getVertexBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
 			if (_vertexBufferDirty) {
-				_vertexBuffer = context.createVertexBuffer(_numVertices, 11);
+				_vertexBuffer = stage3DProxy._context3D.createVertexBuffer(_numVertices, 11);
 				_vertexBuffer.uploadFromVector(_vertices, 0, _numVertices);
 				_vertexBufferDirty = false;
 			}
 			return _vertexBuffer;
 		}
 
-		public function getUVBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getUVBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
 			return null;
 		}
 
-		public function getVertexNormalBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getVertexNormalBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
 			return null;
 		}
 
-		public function getVertexTangentBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getVertexTangentBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
 			return null;
 		}
 
-		public function getIndexBuffer(context : Context3D, contextIndex : uint) : IndexBuffer3D
+		public function getIndexBuffer(stage3DProxy : Stage3DProxy) : IndexBuffer3D
 		{
 			if (_indexBufferDirty) {
-				_indexBuffer = context.createIndexBuffer(_numIndices);
+				_indexBuffer = stage3DProxy._context3D.createIndexBuffer(_numIndices);
 				_indexBuffer.uploadFromVector(_indices, 0, _numIndices);
 				_indexBufferDirty = false;
 			}
@@ -267,6 +268,11 @@
 		override protected function createEntityPartitionNode() : EntityNode
 		{
 			return new RenderableNode(this);
+		}
+
+		public function get uvTransform() : Matrix
+		{
+			return null;
 		}
 	}
 }

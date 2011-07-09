@@ -3,8 +3,8 @@ package away3d.materials.methods
 	import away3d.arcane;
 	import away3d.cameras.Camera3D;
 	import away3d.core.base.IRenderable;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.lights.LightBase;
-	import away3d.materials.utils.AGAL;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
 
@@ -69,13 +69,13 @@ package away3d.materials.methods
 			_depthMapVar = regCache.getFreeVarying();
 			_toTexIndex = toTexReg.index;
 
-			code += AGAL.m44(temp.toString(), "vt0", depthMapProj.toString());
-			code += AGAL.rcp(temp+".w", temp+".w");
-			code += AGAL.mul(temp+".xyz", temp+".xyz", temp+".w");
-			code += AGAL.mul(temp+".xy", temp+".xy", toTexReg+".xy");
-			code += AGAL.add(temp+".xy", temp+".xy", toTexReg+".xx");
-			code += AGAL.mov(_depthMapVar+".xyz", temp+".xyz");
-			code += AGAL.mov(_depthMapVar+".w", "va0.w");
+			code += "m44 " + temp + ", vt0, " + depthMapProj + "\n" +
+					"rcp " + temp+".w, " + temp+".w\n" +
+					"mul " + temp+".xyz, " + temp+".xyz, " + temp+".w\n" +
+					"mul " + temp+".xy, " + temp+".xy, " + toTexReg+".xy\n" +
+					"add " + temp+".xy, " + temp+".xy, " + toTexReg+".xx\n" +
+					"mov " + _depthMapVar+".xyz, " + temp+".xyz\n" +
+					"mov " + _depthMapVar+".w, va0.w\n";
 
 			return code;
 		}
@@ -92,11 +92,11 @@ package away3d.materials.methods
 			var code : String = "";
             _decIndex = decReg.index;
 
-			code += AGAL.sample(depthCol.toString(), _depthMapVar.toString(), "2d", depthMapRegister.toString(), "nearestNoMip", "clamp");
-			code += AGAL.dp4(depthCol+".z", depthCol.toString(), decReg.toString());
-			code += AGAL.add(targetReg.toString(), _depthMapVar+".z", epsReg+".x");    // offset by epsilon
+			code += "tex " + depthCol + ", " + _depthMapVar + ", " + depthMapRegister + " <2d, nearestNoMip, clamp>\n" +
+					"dp4 " + depthCol+".z, " + depthCol + ", " + decReg + "\n" +
+					"add " + targetReg + ", " + _depthMapVar+".z, " + epsReg+".x\n" +    // offset by epsilon
 
-			code += AGAL.lessThan(targetReg.toString(), targetReg.toString(), depthCol+".z");   // 0 if in shadow
+					"slt " + targetReg + ", " + targetReg + ", " + depthCol+".z\n";   // 0 if in shadow
 
 
 			_depthMapIndex = depthMapRegister.index;
@@ -104,26 +104,27 @@ package away3d.materials.methods
 			return code;
 		}
 
-		arcane override function setRenderState(renderable : IRenderable, context : Context3D, contextIndex : uint, camera : Camera3D, lights : Vector.<LightBase>) : void
+		arcane override function setRenderState(renderable : IRenderable, stage3DProxy : Stage3DProxy, camera : Camera3D, lights : Vector.<LightBase>) : void
 		{
 			_projMatrix.copyFrom(_castingLight.shadowMapper.depthProjection);
 			_projMatrix.prepend(renderable.sceneTransform);
-			context.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, _depthProjIndex, _projMatrix, true);
+			stage3DProxy._context3D.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, _depthProjIndex, _projMatrix, true);
 		}
 
 		/**
 		 * @inheritDoc
 		 */
-		override arcane function activate(context : Context3D, contextIndex : uint) : void
+		override arcane function activate(stage3DProxy : Stage3DProxy) : void
 		{
+			var context : Context3D = stage3DProxy._context3D;
 			context.setProgramConstantsFromVector(Context3DProgramType.VERTEX, _toTexIndex, _offsetData, 1);
 			context.setProgramConstantsFromVector(Context3DProgramType.FRAGMENT, _decIndex, _dec, 2);
-			context.setTextureAt(_depthMapIndex, _castingLight.shadowMapper.getDepthMap(contextIndex));
+			stage3DProxy.setTextureAt(_depthMapIndex, _castingLight.shadowMapper.getDepthMap(stage3DProxy));
 		}
 
-		arcane override function deactivate(context : Context3D) : void
-		{
-			context.setTextureAt(_depthMapIndex, null);
-		}
+//		arcane override function deactivate(stage3DProxy : Stage3DProxy) : void
+//		{
+//			stage3DProxy.setTextureAt(_depthMapIndex, null);
+//		}
 	}
 }

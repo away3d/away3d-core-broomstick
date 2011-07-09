@@ -1,15 +1,17 @@
 package away3d.core.base
 {
-	import away3d.arcane;
 	import away3d.animators.data.AnimationBase;
 	import away3d.animators.data.AnimationStateBase;
-	import away3d.materials.MaterialBase;
+	import away3d.arcane;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.entities.Entity;
 	import away3d.entities.Mesh;
+	import away3d.materials.MaterialBase;
 
 	import flash.display3D.Context3D;
 	import flash.display3D.IndexBuffer3D;
 	import flash.display3D.VertexBuffer3D;
+	import flash.geom.Matrix;
 	import flash.geom.Matrix3D;
 
 	use namespace arcane;
@@ -26,6 +28,13 @@ package away3d.core.base
 		private var _parentMesh : Mesh;
 		private var _subGeometry : SubGeometry;
 		arcane var _index : uint;
+		private var _uvTransform : Matrix;
+		private var _uvTransformDirty : Boolean;
+		private var _uvRotation : Number = 0;
+		private var _scaleU : Number = 1;
+		private var _scaleV : Number = 1;
+		private var _offsetU : Number = 0;
+		private var _offsetV : Number = 0;
 
 		/**
 		 * Creates a new SubMesh object
@@ -38,6 +47,66 @@ package away3d.core.base
 			_parentMesh = parentMesh;
 			_subGeometry = subGeometry;
 			this.material = material;
+		}
+
+		public function get offsetU() : Number
+		{
+			return _offsetU;
+		}
+
+		public function set offsetU(value : Number) : void
+		{
+			if (value == _offsetU) return;
+			_offsetU = value;
+			_uvTransformDirty = true;
+		}
+
+		public function get offsetV() : Number
+		{
+			return _offsetV;
+		}
+
+		public function set offsetV(value : Number) : void
+		{
+			if (value == _offsetV) return;
+			_offsetV = value;
+			_uvTransformDirty = true;
+		}
+
+		public function get scaleU() : Number
+		{
+			return _scaleU;
+		}
+
+		public function set scaleU(value : Number) : void
+		{
+			if (value == _scaleU) return;
+			_scaleU = value;
+			_uvTransformDirty = true;
+		}
+
+		public function get scaleV() : Number
+		{
+			return _scaleV;
+		}
+
+		public function set scaleV(value : Number) : void
+		{
+			if (value == _scaleV) return;
+			_scaleV = value;
+			_uvTransformDirty = true;
+		}
+
+		public function get uvRotation() : Number
+		{
+			return _uvRotation;
+		}
+
+		public function set uvRotation(value : Number) : void
+		{
+			if (value == _uvRotation) return;
+			_uvRotation = value;
+			_uvTransformDirty = true;
 		}
 
 		/**
@@ -115,9 +184,9 @@ package away3d.core.base
 		 * @param context The Context3D for which we request the buffer
 		 * @return The VertexBuffer3D object that contains vertex positions.
 		 */
-		public function getVertexBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getVertexBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
-			return _subGeometry.getVertexBuffer(context, contextIndex);
+			return _subGeometry.getVertexBuffer(stage3DProxy);
 		}
 
 		/**
@@ -125,9 +194,9 @@ package away3d.core.base
 		 * @param context The Context3D for which we request the buffer
 		 * @return The VertexBuffer3D object that contains vertex normals.
 		 */
-		public function getVertexNormalBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getVertexNormalBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
-			return _subGeometry.getVertexNormalBuffer(context, contextIndex);
+			return _subGeometry.getVertexNormalBuffer(stage3DProxy);
 		}
 
 		/**
@@ -135,9 +204,9 @@ package away3d.core.base
 		 * @param context The Context3D for which we request the buffer
 		 * @return The VertexBuffer3D object that contains vertex tangents.
 		 */
-		public function getVertexTangentBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getVertexTangentBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
-			return _subGeometry.getVertexTangentBuffer(context, contextIndex);
+			return _subGeometry.getVertexTangentBuffer(stage3DProxy);
 		}
 
 		/**
@@ -145,9 +214,9 @@ package away3d.core.base
 		 * @param context The Context3D for which we request the buffer
 		 * @return The VertexBuffer3D object that contains texture coordinates.
 		 */
-		public function getUVBuffer(context : Context3D, contextIndex : uint) : VertexBuffer3D
+		public function getUVBuffer(stage3DProxy : Stage3DProxy) : VertexBuffer3D
 		{
-			return _subGeometry.getUVBuffer(context, contextIndex);
+			return _subGeometry.getUVBuffer(stage3DProxy);
 		}
 
 		/**
@@ -155,9 +224,9 @@ package away3d.core.base
 		 * @param context The Context3D for which we request the buffer
 		 * @return The VertexBuffer3D object that contains triangle indices.
 		 */
-		public function getIndexBuffer(context : Context3D, contextIndex : uint) : IndexBuffer3D
+		public function getIndexBuffer(stage3DProxy : Stage3DProxy) : IndexBuffer3D
 		{
-			return _subGeometry.getIndexBuffer(context, contextIndex);
+			return _subGeometry.getIndexBuffer(stage3DProxy);
 		}
 
 		/**
@@ -218,6 +287,22 @@ package away3d.core.base
 		arcane function set parentMesh(value : Mesh) : void
 		{
 			_parentMesh = value;
+		}
+
+		public function get uvTransform() : Matrix
+		{
+			if (_uvTransformDirty) updateUVTransform();
+			return _uvTransform;
+		}
+
+		private function updateUVTransform() : void
+		{
+			_uvTransform ||= new Matrix();
+			_uvTransform.identity();
+			if (_uvRotation != 0) _uvTransform.rotate(_uvRotation);
+			if (_scaleU != 1 || _scaleV != 1) _uvTransform.scale(_scaleU, _scaleV);
+			_uvTransform.translate(_offsetU, _offsetV);
+			_uvTransformDirty = false;
 		}
 	}
 }

@@ -2,7 +2,7 @@ package away3d.materials.methods
 {
 	import away3d.arcane;
 	import away3d.core.managers.CubeTexture3DProxy;
-	import away3d.materials.utils.AGAL;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.materials.utils.CubeMap;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
@@ -65,19 +65,19 @@ package away3d.materials.methods
 		/**
 		 * @inheritDoc
 		 */
-		arcane override function activate(context : Context3D, contextIndex : uint) : void
+		arcane override function activate(stage3DProxy : Stage3DProxy) : void
 		{
-			super.activate(context, contextIndex);
+			super.activate(stage3DProxy);
 
-			context.setTextureAt(_cubeMapIndex, _cubeTexture.getTextureForContext(context, contextIndex));
+			stage3DProxy.setTextureAt(_cubeMapIndex, _cubeTexture.getTextureForContext(stage3DProxy));
 		}
 
-		arcane override function deactivate(context : Context3D) : void
-		{
-			super.deactivate(context);
-
-			context.setTextureAt(_cubeMapIndex, null);
-		}
+//		arcane override function deactivate(stage3DProxy : Stage3DProxy) : void
+//		{
+//			super.deactivate(stage3DProxy);
+//
+//			stage3DProxy.setTextureAt(_cubeMapIndex, null);
+//		}
 
 		/**
 		 * @inheritDoc
@@ -88,12 +88,12 @@ package away3d.materials.methods
 			var cubeMapReg : ShaderRegisterElement = regCache.getFreeTextureReg();
 			_cubeMapIndex = cubeMapReg.index;
 
-			code += AGAL.sample(targetReg.toString(), _normalFragmentReg.toString(), "cube", cubeMapReg.toString(), "bilinear", "clamp");
+			code += "tex " + targetReg + ", " + _normalFragmentReg + ", " + cubeMapReg + " <cube,linear,clamp>\n";
 
 			_ambientInputRegister = regCache.getFreeFragmentConstant();
 			_ambientInputIndex = _ambientInputRegister.index;
 
-			code += AGAL.add(targetReg+".xyz", targetReg+".xyz", _ambientInputRegister+".xyz");
+			code += "add " + targetReg+".xyz, " + targetReg+".xyz, " + _ambientInputRegister+".xyz\n";
 
 			return code;
 		}

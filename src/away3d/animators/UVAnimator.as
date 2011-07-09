@@ -4,13 +4,14 @@ package away3d.animators
 	import away3d.animators.data.UVAnimationSequence;
 	import away3d.animators.utils.TimelineUtil;
 	import away3d.arcane;
+	import away3d.core.base.SubMesh;
 	import away3d.materials.BitmapMaterial;
-	
+
 	use namespace arcane;
 	
 	public class UVAnimator extends AnimatorBase
 	{
-		private var _target : BitmapMaterial;
+		private var _target : SubMesh;
 		private var _sequences : Object;
 		private var _activeSequence : UVAnimationSequence;
 		
@@ -19,11 +20,14 @@ package away3d.animators
 		private var _deltaFrame : UVAnimationFrame;
 		
 		
-		public function UVAnimator(target : BitmapMaterial)
+		public function UVAnimator(target : SubMesh)
 		{
 			super();
 			
 			_target = target;
+            // disable transform warning
+            _target.uvRotation = 1;
+            _target.uvRotation = 0;
 			_sequences = {};
 			_deltaFrame = new UVAnimationFrame();
 			_tlUtil = new TimelineUtil();
@@ -38,8 +42,13 @@ package away3d.animators
 		
 		public function play(sequenceName : String) : void
 		{
+			var material : BitmapMaterial = _target.material as BitmapMaterial;
+
 			_activeSequence = _sequences[sequenceName];
-			
+
+			if (material)
+				material.animateUVs = true;
+
 			reset();
 			start();
 		}

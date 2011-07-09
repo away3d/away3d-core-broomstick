@@ -3,9 +3,9 @@ package away3d.materials.methods
 	import away3d.arcane;
 	import away3d.cameras.Camera3D;
 	import away3d.core.base.IRenderable;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.lights.LightBase;
 	import away3d.materials.passes.MaterialPassBase;
-	import away3d.materials.utils.AGAL;
 	import away3d.materials.utils.ShaderRegisterCache;
 	import away3d.materials.utils.ShaderRegisterElement;
 
@@ -292,7 +292,7 @@ package away3d.materials.methods
 		 * @param context The Context3D currently used for rendering.
 		 * @private
 		 */
-		arcane function activate(context : Context3D, contextIndex : uint) : void
+		arcane function activate(stage3DProxy : Stage3DProxy) : void
 		{
 
 		}
@@ -300,7 +300,7 @@ package away3d.materials.methods
 		/**
 		 * Sets the render state for a single renderable.
 		 */
-		arcane function setRenderState(renderable : IRenderable, context : Context3D, contextIndex : uint, camera : Camera3D, lights : Vector.<LightBase>) : void
+		arcane function setRenderState(renderable : IRenderable, stage3DProxy : Stage3DProxy, camera : Camera3D, lights : Vector.<LightBase>) : void
 		{
 
 		}
@@ -310,7 +310,7 @@ package away3d.materials.methods
 		 * @param context The Context3D currently used for rendering.
 		 * @private
 		 */
-		arcane function deactivate(context : Context3D) : void
+		arcane function deactivate(stage3DProxy : Stage3DProxy) : void
 		{
 
 		}
@@ -326,11 +326,11 @@ package away3d.materials.methods
 			var wrap : String = _repeat ? "wrap" : "clamp";
 			var filter : String;
 
-			if (_smooth) filter = _mipmap ? "trilinear" : "bilinear";
-			else filter = _mipmap ? "nearestMip" : "nearestNoMip";
+			if (_smooth) filter = _mipmap ? "linear,miplinear" : "linear";
+			else filter = _mipmap ? "nearest,mipnearest" : "nearest";
 
             uvReg ||= _uvFragmentReg;
-			return AGAL.sample(targetReg.toString(), uvReg.toString(), "2d", inputReg.toString(), filter, wrap);
+            return "tex "+targetReg.toString()+", "+uvReg.toString()+", "+inputReg.toString()+" <2d,"+filter+","+wrap+">\n";
 		}
 
 		/**

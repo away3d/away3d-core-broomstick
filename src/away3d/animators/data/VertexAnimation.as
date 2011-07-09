@@ -1,8 +1,8 @@
 package away3d.animators.data
 {
 	import away3d.arcane;
+	import away3d.core.managers.Stage3DProxy;
 	import away3d.materials.passes.MaterialPassBase;
-	import away3d.materials.utils.AGAL;
 
 	import flash.display3D.Context3D;
 
@@ -54,13 +54,13 @@ package away3d.animators.data
 		/**
 		 * @inheritDoc
 		 */
-		override arcane function deactivate(context : Context3D, pass : MaterialPassBase) : void
+		override arcane function deactivate(stage3DProxy : Stage3DProxy, pass : MaterialPassBase) : void
 		{
-			context.setVertexBufferAt(_streamIndex, null);
+			stage3DProxy.setSimpleVertexBuffer(_streamIndex, null);
 			if (_useNormals)
-				context.setVertexBufferAt(_streamIndex + 1, null);
+				stage3DProxy.setSimpleVertexBuffer(_streamIndex + 1, null);
 			if (_useTangents)
-				context.setVertexBufferAt(_streamIndex + 2, null);
+				stage3DProxy.setSimpleVertexBuffer(_streamIndex + 2, null);
 		}
 
 		/**
@@ -95,21 +95,21 @@ package away3d.animators.data
 			for (var i : uint = 0; i < len; ++i) {
 				for (var j : uint = 0; j < _numPoses; ++j) {
 					if (j == 0) {
-						code += AGAL.mul(temp1, attribs[i], "vc" + pass.numUsedVertexConstants + "." + regs[j]);
+						code += "mul " + temp1 + ", " + attribs[i] + ", vc" + pass.numUsedVertexConstants + "." + regs[j] + "\n";
 					}
 					else {
-						code += AGAL.mul(temp2, "va" + (_streamIndex + k), "vc" + pass.numUsedVertexConstants + "." + regs[j]);
-						if (j < _numPoses - 1) code += AGAL.add(temp1, temp1, temp2);
-						else code += AGAL.add(targets[i], temp1, temp2);
+						code += "mul " + temp2 + ", va" + (_streamIndex + k) + ", vc" + pass.numUsedVertexConstants + "." + regs[j] + "\n";
+						if (j < _numPoses - 1) code += "add " + temp1 + ", " + temp1 + ", " + temp2 + "\n";
+						else code += "add " + targets[i] + ", " + temp1 + ", " + temp2 + "\n";
 						++k;
 					}
 				}
 			}
 
 			if (_useTangents) {
-				code += AGAL.dp3(temp1 + ".x", attribs[uint(2)], targets[uint(1)]);
-				code += AGAL.mul(temp1, targets[uint(1)], temp1 + ".x");
-				code += AGAL.sub(targets[uint(2)], attribs[uint(2)], temp1);
+				code += "dp3 " + temp1 + ".x, " + attribs[uint(2)] + ", " + targets[uint(1)] + "\n" +
+						"mul " + temp1 + ", " + targets[uint(1)] + ", " + temp1 + ".x			 \n" +
+						"sub " + targets[uint(2)] + ", " + attribs[uint(2)] + ", " + temp1 + "\n";
 			}
 			return code;
 		}
@@ -129,21 +129,21 @@ package away3d.animators.data
 
 			if (len > 2) len = 2;
 
-			code += AGAL.mov(targets[0], attribs[0]);
-			if (_useNormals) code += AGAL.mov(targets[1], attribs[1]);
+			code += "mov  " + targets[0] + ", " + attribs[0] + "\n";
+			if (_useNormals) code += "mov " + targets[1] + ", " + attribs[1] + "\n";
 
 			for (var i : uint = 0; i < len; ++i) {
 				for (var j : uint = 0; j < _numPoses; ++j) {
-					code += AGAL.mul(temp1, "va" + (_streamIndex + k), "vc" + pass.numUsedVertexConstants + "." + regs[j]);
-					code += AGAL.add(targets[i], targets[i], temp1);
+					code += "mul " + temp1 + ", va" + (_streamIndex + k) + ", vc" + pass.numUsedVertexConstants + "." + regs[j] + "\n" +
+							"add " + targets[i] + ", " + targets[i] + ", " + temp1 + "\n";
 					k++;
 				}
 			}
 
 			if (_useTangents) {
-				code += AGAL.dp3(temp1 + ".x", attribs[uint(2)], targets[uint(1)]);
-				code += AGAL.mul(temp1, targets[uint(1)], temp1 + ".x");
-				code += AGAL.sub(targets[uint(2)], attribs[uint(2)], temp1);
+				code += "dp3 " + temp1 + ".x, " + attribs[uint(2)] + ", " + targets[uint(1)] + "\n" +
+						"mul " + temp1 + ", " + targets[uint(1)] + ", " + temp1 + ".x			 \n" +
+						"sub " + targets[uint(2)] + ", " + attribs[uint(2)] + ", " + temp1 + "\n";
 			}
 
 			return code;
